@@ -1,0 +1,27 @@
+/project-root
+    /controllers
+        - empresaController.js
+        - tercerosController.js
+        - usuariosController.js
+        - serviciosController.js
+        ...
+    /routes
+        - empresaRoutes.js
+        - tercerosRoutes.js
+        - usuariosRoutes.js
+        - serviciosRoutes.js
+        ...
+    /models
+        - empresaModel.js
+        - tercerosModel.js
+        - usuariosModel.js
+        - serviciosModel.js
+        ...
+    /config
+        - dbConfig.js
+    /middlewares
+        - authMiddleware.js
+    /utils
+        - responseHandler.js
+    - app.js
+    - package.json
