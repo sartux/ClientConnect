@@ -59,6 +59,9 @@ CREATE TABLE Usuarios (
     Clave NVARCHAR(255) NOT NULL,
     Rol NVARCHAR(50) CHECK (Rol IN ('Superadmin', 'Empresa', 'Empleado')) NOT NULL,
     Estado NVARCHAR(50) DEFAULT 'Activo',
+    Email NVARCHAR(255) NULL;  -- Ajusta el tipo de datos y las restricciones según sea necesario
+    RecoveryCode NVARCHAR(50) NULL;  -- Ajusta el tamaño y las restricciones según sea necesario
+
     FOREIGN KEY (EMPRESA_ID) REFERENCES Empresas(ID)
 );
 GO
