@@ -1,28 +1,29 @@
+// dbConfig.js
 const sql = require('mssql');
+require('dotenv').config(); // Cargar variables de entorno
 
-const config = {
-    user: 'sa',
-    password: 'Sergio2Andrea*',
-    server: 'sartux2\\SQLEXPRESS', // Usa 'localhost' si estás en la misma máquina
-    database: 'ClientConnect_V1',
+const dbConfig = {
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    server: process.env.DB_SERVER,
+    database: process.env.DB_DATABASE,
     options: {
         encrypt: true, // Usar cifrado
         trustServerCertificate: true // Para evitar problemas con certificados auto-firmados
     }
 };
 
-const poolPromise = new sql.ConnectionPool(config)
+const poolPromise = new sql.ConnectionPool(dbConfig)
     .connect()
     .then(pool => {
-        console.log('Connected to SQL Server');
+        console.log('Conexión exitosa a la base de datos');
         return pool;
     })
     .catch(err => {
-        console.error('Database connection failed:', err);
-        process.exit(1);
+        console.error('Fallo en la conexión a la base de datos:', err);
+        process.exit(1); // Detén el proceso si la conexión falla
     });
 
 module.exports = {
-    sql,
-    poolPromise
+    sql, poolPromise
 };
