@@ -33,6 +33,7 @@ const login = async (req, res) => {
         const token = jwt.sign({ userId: user.ID, role: user.Rol }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
         res.json({
+            success: true,  // Este campo es importante para que el frontend redirija al dashboard
             token,
             user: {
                 id: user.ID,

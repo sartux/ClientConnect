@@ -1,26 +1,39 @@
 // userController.js
 const db = require('../config/dbConfig'); // Tu configuración de base de datos
 const emailService = require('../utils/emailService'); // Módulo para enviar correos
+const { generateRecoveryCode } = require('../utils/codeGenerator'); // Función para generar código
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const sql = require('mssql'); // Asegúrate de importar sql si usas mssql
 const moment = require('moment');
 
-// Enviar código de verificación al correo
 exports.sendResetCode = async (req, res) => {
     const { username } = req.body;
-    
+
     try {
-        const user = await db.query('SELECT Email FROM Usuarios WHERE Nombre_Usuario = ?', [username]);
-        
-        if (!user || user.length === 0) {
+        const pool = await db.poolPromise;
+        const result = await pool.request()
+            .input('Nombre_Usuario', sql.NVarChar, username)
+            .query('SELECT Email FROM Usuarios WHERE Nombre_Usuario = @Nombre_Usuario');
+        const user = result.recordset[0];
+
+        if (!user) {
             return res.status(404).json({ message: 'Usuario no encontrado' });
         }
 
-        const email = user[0].Email;
-        const token = jwt.sign({ username }, process.env.JWT_SECRET, { expiresIn: '30m' });
+        const email = user.Email;
+        const recoveryCode = generateRecoveryCode();
+        const expirationDate = moment().add(5, 'minutes').toDate(); // Código válido por 5 minutos
 
-        // Envía un email con el código de verificación (o token)
-        await emailService.sendEmail(email, 'Código de recuperación', `Tu código de recuperación es: ${token}`);
+        // Actualiza el código de recuperación y su expiración en la base de datos
+        await pool.request()
+            .input('Nombre_Usuario', sql.NVarChar, username)
+            .input('RecoveryCode', sql.NVarChar, recoveryCode)
+            .input('RecoveryCodeExpiration', sql.DateTime, expirationDate)
+            .query('UPDATE Usuarios SET RecoveryCode = @RecoveryCode, RecoveryCodeExpiration = @RecoveryCodeExpiration WHERE Nombre_Usuario = @Nombre_Usuario');
+
+        // Envía un email con el código de recuperación
+        await emailService.sendEmail(email, 'Código de recuperación', `Tu código de recuperación es: ${recoveryCode}`);
 
         return res.json({
             message: `El código fue enviado al correo ${email.replace(/(.{2})(.*)(?=@)/,
@@ -28,19 +41,38 @@ exports.sendResetCode = async (req, res) => {
         });
 
     } catch (error) {
-        return res.status(500).json({ message: 'Error al enviar el código de recuperación' });
+        console.error('Error en el envío del código de recuperación:', error);
+        return res.status(500).json({ message: 'Error al enviar el código de recuperación', error: error.message || error });
     }
 };
 
 // Validar el código de recuperación
-exports.validateResetCode = (req, res) => {
-    const { token } = req.body;
+exports.validateResetCode = async (req, res) => {
+    const { username, code } = req.body;
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        return res.json({ message: 'Código válido', username: decoded.username });
+        const pool = await db.poolPromise;
+        const result = await pool.request()
+            .input('Nombre_Usuario', sql.NVarChar, username)
+            .query('SELECT RecoveryCode, RecoveryCodeExpiration FROM Usuarios WHERE Nombre_Usuario = @Nombre_Usuario');
+        const user = result.recordset[0];
+
+        if (!user) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        if (user.RecoveryCode !== code) {
+            return res.status(400).json({ message: 'Código incorrecto' });
+        }
+
+        if (moment().isAfter(user.RecoveryCodeExpiration)) {
+            return res.status(400).json({ message: `Código expirado. El código es válido por 5 minutos. Solicite uno nuevo.` });
+        }
+
+        return res.json({ message: 'Código válido' });
+
     } catch (error) {
-        return res.status(400).json({ message: 'Código inválido o expirado' });
+        return res.status(500).json({ message: 'Error al validar el código de recuperación', error: error.message || error });
     }
 };
 
@@ -54,12 +86,18 @@ exports.updatePassword = async (req, res) => {
         return res.status(400).json({ message: 'La contraseña no cumple con los requisitos de seguridad' });
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
     try {
-        await db.query('UPDATE Usuarios SET Clave = ? WHERE Nombre_Usuario = ?', [hashedPassword, username]);
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        const pool = await db.poolPromise;
+        await pool.request()
+            .input('Nombre_Usuario', sql.NVarChar, username)
+            .input('Clave', sql.NVarChar, hashedPassword)
+            .query('UPDATE Usuarios SET Clave = @Clave, RecoveryCode = NULL, RecoveryCodeExpiration = NULL WHERE Nombre_Usuario = @Nombre_Usuario');
+
         return res.json({ message: 'Contraseña actualizada exitosamente' });
     } catch (error) {
-        return res.status(500).json({ message: 'Error al actualizar la contraseña' });
+        console.error('Error al actualizar la contraseña:', error);
+        return res.status(500).json({ message: 'Error al actualizar la contraseña', error: error.message || error });
     }
 };
