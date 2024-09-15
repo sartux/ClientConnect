@@ -1,7 +1,8 @@
 // authController.js
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { poolPromise } = require('../config/dbConfig');
+const { sql, poolPromise } = require('../config/dbConfig'); // Asegúrate de importar sql
+
 
 const login = async (req, res) => {
     const { Nombre_Usuario, Clave } = req.body;
@@ -40,9 +41,11 @@ const login = async (req, res) => {
             }
         });
     } catch (error) {
-        res.status(500).json({ message: 'Error en el servidor', error });
+        console.error('Error en el servidor:', error); // Esto imprime el error en la consola del servidor
+        res.status(500).json({ message: 'Error en el servidor', error: error.message || error });
     }
 };
+
 
 module.exports = {
     login

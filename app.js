@@ -17,7 +17,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Rutas
 const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');  // Añade las rutas de recuperación de contraseña
+
 app.use('/api/auth', authRoutes);
+app.use('/api', userRoutes);  // Añade el prefijo /api para las rutas de usuario
 
 // Definición del puerto
 const PORT = process.env.PORT || 5000;
